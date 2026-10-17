@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Syntax check the scaffolder
+        run: node --check bin/create-quickwin.js
+
+      # 用脚手架生成一个项目并当作真实用户构建它：这一步同时也是模板的端到端验收
+      # （验证 package.json 包名改写、_gitignore→.gitignore、APP_NAME/APP_TITLE 哨兵替换）
+      - name: Generate a project and build it
+        run: |
+          node bin/create-quickwin.js smoke-app --base=x64-wasm
+          cd smoke-app
+          test -f .gitignore
+          test ! -f _gitignore
+          grep -q '"name": "smoke-app"' package.json
+          grep -q "APP_NAME = 'smoke-app'" src/config.ts
+          grep -q -- '--base=x64-wasm' package.json
+          npm ci
+          npm run build
+          test -f dist/app.exe
+          test -f dist/app.js
+          node -e "const s=require('fs').statSync('dist/app.exe').size; if(s<1000000) throw new Error('exe too small: '+s); console.log('dist/app.exe', s, 'bytes')"
+
+      - name: Packed tarball must not carry build output
+        run: |
+          TGZ=$(npm pack --silent | tail -1)
+          echo "tarball: $TGZ"
+          tar -tzf "$TGZ" | sort > files.txt
+          cat files.txt
+          grep -qx 'package/bin/create-quickwin.js' files.txt
+          grep -qx 'package/template/_gitignore' files.txt
+          grep -qx 'package/template/src/main.ts' files.txt
+          grep -qx 'package/template/package-lock.json' files.txt
+          ! grep -qE '^package/template/(dist|node_modules)/' files.txt
+          ! grep -q '^package/template/\.gitignore$' files.txt
