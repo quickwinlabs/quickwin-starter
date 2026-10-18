@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // 不开 DOM：会和包内 polyfill 的同名全局声明撞（TextDecoder/TextEncoder）
+    "lib": [
+      "es2024"
+    ],
+    // JSX 走 react/jsx-runtime；<w> 的属性类型来自 quickwin/lib/react-qw/jsx.d.ts
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    // 只取 quickwin 的类型入口；build.ts / icon.ts 是 Node 侧脚本，自取 Node 类型
+    "types": ["quickwin"],
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src"
+  ]
+}

@@ -1,6 +1,6 @@
 node_modules/
-template/node_modules/
-template/dist/
-template/package-lock.json
-template/log_*.txt
+templates/*/node_modules/
+templates/*/dist/
+templates/*/package-lock.json
+templates/*/log_*.txt
 *.tgz

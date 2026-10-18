@@ -30,39 +30,61 @@ jobs:
           registry-url: https://registry.npmjs.org # 发布步骤取 token 用
 
       # 脚手架只改写应用名/标题与 @types/node 版本；底座不由它选（生成的 build 脚本
-      # 就是 node build.ts，默认 x86-nowasm），用户要换就手改那一行 —— 这里先按默认
-      # 构建，再自己换个底座验一次
+      # 就是 node build.ts，默认 x86-nowasm），用户要换就手改那一行
       # 脚手架本身的语法不用单独查——node 整文件解析先于执行，真有语法错这步就报错了
-      - name: Generate a project and build it
-        run: |
-          node bin/create-quickwin.js smoke-app
-          cd smoke-app
-          test -f .gitignore
-          test ! -f _gitignore
-          test -f build.ts
-          test -f icon.ts
-          grep -q '"name": "smoke-app"' package.json
-          grep -q "APP_NAME = 'smoke-app'" src/config.ts
-          grep -q '"build": "tsc && node build.ts"' package.json
-          ! grep -q -- '--base' package.json
-          # 模板不带 lock：@types/node 的大版本按生成时本机 Node 写死
-          test ! -f package-lock.json
-          NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
-          grep -q "\"@types/node\": \"^$NODE_MAJOR\"" package.json
-          npm install --no-audit --no-fund
-          npm run build
-          test -f dist/app.exe
-          test -f dist/app.js
-          node -e "const s=require('fs').statSync('dist/app.exe').size; if(s<1000000) throw new Error('exe too small: '+s); console.log('dist/app.exe', s, 'bytes')"
-          # 换底座：--base 仍是 build.ts 的参数，x64 底座更大（验值真被用上）
-          SMALL=$(node -p "require('fs').statSync('dist/app.exe').size")
-          node build.ts --base=x64
-          BIG=$(node -p "require('fs').statSync('dist/app.exe').size")
-          echo "x86-nowasm $SMALL B -> x64 $BIG B"
-          [ "$BIG" -gt "$SMALL" ]
 
-      # 发布前的最后一道闸：确认 tarball 就是"bin + template"这两样（npm 只剪包根的
-      # node_modules/dist，template/ 下的必须靠 template/.npmignore，这里正是验它）
+      # 不带 --template 时生成的必须与 --template=<默认模板> 一模一样
+      # 两侧目录名取得一样，否则包名/APP_NAME/APP_TITLE 这些按目录名改写的字段天然不同
+      - name: Default template
+        run: |
+          DEFAULT=$(sed -n "s/^const DEFAULT_TEMPLATE = '\([a-z0-9-]*\)'$/\1/p" bin/create-quickwin.js)
+          echo "default template: $DEFAULT"
+          mkdir -p with-flag
+          node bin/create-quickwin.js smoke
+          node bin/create-quickwin.js with-flag/smoke --template="$DEFAULT"
+          diff -r smoke with-flag/smoke
+          ! node bin/create-quickwin.js smoke-bad --template=nope 2>/dev/null
+
+      # 每个模板都按真实用户走一遍：生成 → 安装 → tsc + 构建。这一步同时验包名改写、
+      # @types/node 跟随本机 Node 大版本、_gitignore→.gitignore、APP_NAME/APP_TITLE 哨兵
+      - name: Build every template
+        run: |
+          for d in templates/*/; do
+            t=$(basename "$d")
+            node bin/create-quickwin.js "smoke-$t" --template="$t"
+            cd "smoke-$t"
+            test -f .gitignore
+            test ! -f _gitignore
+            test -f build.ts
+            test -f icon.ts
+            grep -q "\"name\": \"smoke-$t\"" package.json
+            grep -q "APP_NAME = 'smoke-$t'" src/config.ts
+            grep -q '"build": "tsc && node build.ts"' package.json
+            ! grep -q -- '--base' package.json
+            # 模板不带 lock：@types/node 的大版本按生成时本机 Node 写死
+            test ! -f package-lock.json
+            NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+            grep -q "\"@types/node\": \"^$NODE_MAJOR\"" package.json
+            npm install --no-audit --no-fund
+            # build.ts / icon.ts 不进 tsconfig 的 include（免得 Node 全局污染运行时视图），
+            # 所以在这里单独把它们按 Node 侧配置查一遍类型。TS7 起"指定文件 + 目录里有
+            # tsconfig"是硬错误（TS5112），故用 --ignoreConfig 明确忽略它
+            npx tsc ./build.ts --noEmit --module nodenext --target es2022 --allowImportingTsExtensions --ignoreConfig
+            npm run build
+            test -f dist/app.exe
+            test -f dist/app.js
+            node -e "const s=require('fs').statSync('dist/app.exe').size; if(s<1000000) throw new Error('exe too small: '+s); console.log('$t', s, 'bytes')"
+            # 换底座：--base 仍是 build.ts 的参数，x64 底座更大（验值真被用上）
+            SMALL=$(node -p "require('fs').statSync('dist/app.exe').size")
+            node build.ts --base=x64
+            BIG=$(node -p "require('fs').statSync('dist/app.exe').size")
+            echo "$t: x86-nowasm $SMALL B -> x64 $BIG B"
+            [ "$BIG" -gt "$SMALL" ]
+            cd ..
+          done
+
+      # 发布前的最后一道闸：确认 tarball 就是"bin + 各模板"这两样（npm 只剪包根的
+      # node_modules/dist，templates/*/ 下的必须靠各自的 .npmignore，这里正是验它）
       - name: Packed tarball must not carry build output
         run: |
           TGZ=$(npm pack --silent | tail -1)
@@ -70,12 +92,14 @@ jobs:
           tar -tzf "$TGZ" | sort > files.txt
           cat files.txt
           grep -qx 'package/bin/create-quickwin.js' files.txt
-          grep -qx 'package/template/_gitignore' files.txt
-          grep -qx 'package/template/src/main.ts' files.txt
-          grep -qx 'package/template/build.ts' files.txt
-          grep -qx 'package/template/icon.ts' files.txt
-          ! grep -qE '^package/template/(dist|node_modules)/' files.txt
-          ! grep -q '^package/template/\.gitignore$' files.txt
+          grep -qx 'package/templates/minimal/_gitignore' files.txt
+          grep -qx 'package/templates/minimal/src/main.ts' files.txt
+          grep -qx 'package/templates/minimal/build.ts' files.txt
+          grep -qx 'package/templates/react/src/main.tsx' files.txt
+          grep -qx 'package/templates/react/src/App.tsx' files.txt
+          grep -qx 'package/templates/react/icon.ts' files.txt
+          ! grep -qE '^package/templates/[^/]+/(dist|node_modules)/' files.txt
+          ! grep -qE '^package/templates/[^/]+/\.gitignore$' files.txt
           ! grep -q 'package-lock\.json' files.txt
 
       # 版本驱动：package.json 的 version 与 registry 上的不同才发一版；不建 tag、

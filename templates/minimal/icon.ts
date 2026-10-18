@@ -1,9 +1,10 @@
 /// <reference types="node" />
-// 图标生成：assets/icon.svg → 多条目 ICO Buffer（build.ts 的 stage 2 调用）
-//
-// 条目策略：16/24/32/48 用 32bpp BMP（+ AND 掩码，XP 起的系统全认）；64/128/256 用 PNG
-// （Vista+）。小尺寸各自独立渲染（不是拿 48px 缩），托盘/资源管理器里不糊。
+// assets/icon.svg → 多条目 ICO → 作为 RT_GROUP_ICON(101) 盖进 exe
+// 条目策略：16/24/32/48 用 32bpp BMP（+AND 掩码，XP 起都认）；64/128/256 用 PNG（Vista+）；
+// 小尺寸各自独立渲染（不是拿大的缩），托盘/资源管理器里不糊。
+import { readFileSync } from 'node:fs'
 import { Resvg, type RenderedImage } from '@resvg/resvg-js'
+import { Data, NtExecutable, NtExecutableResource, Resource } from 'resedit'
 
 export function iconFromSvg(svg: string): Buffer {
     const render = (size: number) => new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render()
@@ -57,4 +58,20 @@ function bmpOf(r: RenderedImage): Buffer {
     ih.writeUInt16LE(1, 12)          // biPlanes
     ih.writeUInt16LE(32, 14)         // biBitCount
     return Buffer.concat([ih, xor, mask])   // biCompression 等字段留 0（BI_RGB）
+}
+
+/** 把 svgPath 的图标盖进 exe，返回新的 exe（原 Buffer 不动）；必须在嵌 JS 之前调用 */
+export function setIcon(exe: Buffer, svgPath: string): Buffer {
+    const ico = iconFromSvg(readFileSync(svgPath, 'utf8'))
+    const pe = NtExecutable.from(exe)
+    const res = NtExecutableResource.from(pe)
+    const iconFile = Data.IconFile.from(ico)
+    Resource.IconGroupEntry.replaceIconsForResource(
+        res.entries,
+        101,        // RT_ICON_GROUP ID（底座无现成图标，资源不存在时自动追加）
+        1033,       // en-US
+        iconFile.icons.map((i) => i.data),
+    )
+    res.outputResource(pe)
+    return Buffer.from(pe.generate())
 }

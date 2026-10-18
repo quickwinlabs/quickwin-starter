@@ -1,0 +1,23 @@
+{
+  "name": "quickwin-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A QuickWin desktop app",
+  "scripts": {
+    "build": "tsc && node build.ts"
+  },
+  "dependencies": {
+    "quickwin": "^3.0.3"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^24",
+    "esbuild": "^0.28.2",
+    "resedit": "^3.1.0",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
