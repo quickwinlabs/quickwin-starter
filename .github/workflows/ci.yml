@@ -1,16 +1,25 @@
 name: CI
 
+# 一个 job 干完两件事：先用脚手架生成项目、构建、验打包清单，全部通过后才在 main 上
+# 按版本发布。步骤自上而下失败即中止，所以坏提交到不了 npm —— 分成两个 workflow 并行
+# 跑就有这个洞（publish 只要 20 秒，CI 要一分钟）。
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
+# 串行、不打断：两个 push 的发布若并发跑，后发的旧版本会把 npm 的 latest 推回去
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
+  id-token: write # 将来换成 npm Trusted Publisher（OIDC）时不再需要改这里
 
 jobs:
-  scaffold:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,12 +27,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-
-      - name: Syntax check the scaffolder
-        run: node --check bin/create-quickwin.js
+          registry-url: https://registry.npmjs.org # 发布步骤取 token 用
 
       # 用脚手架生成一个项目并当作真实用户构建它：这一步同时也是模板的端到端验收
       # （验证 package.json 包名改写、_gitignore→.gitignore、APP_NAME/APP_TITLE 哨兵替换）
+      # 脚手架本身的语法不用单独查——node 整文件解析先于执行，真有语法错这步就报错了
       - name: Generate a project and build it
         run: |
           node bin/create-quickwin.js smoke-app --base=x64-wasm
@@ -39,6 +47,8 @@ jobs:
           test -f dist/app.js
           node -e "const s=require('fs').statSync('dist/app.exe').size; if(s<1000000) throw new Error('exe too small: '+s); console.log('dist/app.exe', s, 'bytes')"
 
+      # 发布前的最后一道闸：确认 tarball 就是"bin + template"这两样（npm 只剪包根的
+      # node_modules/dist，template/ 下的必须靠 template/.npmignore，这里正是验它）
       - name: Packed tarball must not carry build output
         run: |
           TGZ=$(npm pack --silent | tail -1)
@@ -51,3 +61,25 @@ jobs:
           grep -qx 'package/template/package-lock.json' files.txt
           ! grep -qE '^package/template/(dist|node_modules)/' files.txt
           ! grep -q '^package/template/\.gitignore$' files.txt
+
+      # 版本驱动：package.json 的 version 与 registry 上的不同才发一版；不建 tag、
+      # 不建 Release —— 包的分发只走 npm。PR 上不发（上面那些步骤照跑）
+      - name: Publish when the registry version differs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # fork 上没有这个 secret：整步安静跳过（同一 workflow 在 fork 里只会构建）
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN not configured — skipping publish"
+            exit 0
+          fi
+          NAME=$(node -p "require('./package.json').name")
+          PKG=$(node -p "require('./package.json').version")
+          LIVE=$(npm view "$NAME" version 2>/dev/null || echo none)
+          echo "$NAME: package.json=$PKG registry=$LIVE"
+          if [ "$PKG" = "$LIVE" ]; then
+            echo "version $PKG already published — nothing to do"
+            exit 0
+          fi
+          npm publish --access public
