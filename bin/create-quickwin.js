@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // create-quickwin —— QuickWin 应用脚手架（零依赖）
 //
-//   npm create quickwin my-app
-//   npm create quickwin my-app -- --template=minimal
-//   npm create quickwin my-app -- --title="我的应用"
+//   npm create -y quickwin@latest my-app
+//   npm create -y quickwin@latest my-app -- --template=minimal
+//   npm create -y quickwin@latest my-app -- --title="我的应用"
 //
 // 模板随 npm 包一起发布（包内 templates/<名字>/），生成就是纯本地拷贝 —— 断网也能用，
 // 且模板和脚手架永远是同一个版本（想用别的模板版本就固定脚手架版本：
@@ -51,7 +51,7 @@ function usage() {
 create-quickwin ${VERSION} —— 生成一个 QuickWin 桌面应用骨架
 
 用法:
-  npm create quickwin <目录> [-- <选项>]
+  npm create -y quickwin@latest <目录> [-- <选项>]
   npx create-quickwin <目录> [选项]
 
 选项:
@@ -140,6 +140,9 @@ function patchProject(dir) {
     cfg = cfg.replace(/(APP_NAME\s*=\s*)'[^']*'/, `$1'${esc(pkgName)}'`)
         .replace(/(APP_TITLE\s*=\s*)'[^']*'/, `$1'${esc(title)}'`)
     writeFileSync(cfgPath, cfg)
+
+    // 4) 根 README 带进项目（模板里没有 README，唯一来源就是包根这份）
+    cpSync(join(PKG_ROOT, 'README.md'), join(dir, 'README.md'))
 }
 
 // ── 目标目录 ──
@@ -152,7 +155,7 @@ if (!existsSync(TEMPLATE_DIR)) {
 }
 mkdirSync(target, { recursive: true })
 // .npmignore 只服务打包（排除 node_modules/dist），不进 tarball，也别带进用户项目
-const skip = new Set(['node_modules', 'dist', '.git', '.npmignore'])
+const skip = new Set(['node_modules', 'dist', '.git', '.npmignore', 'package-lock.json'])
 for (const entry of readdirSync(TEMPLATE_DIR)) {
     cpSync(join(TEMPLATE_DIR, entry), join(target, entry), {
         recursive: true,
@@ -170,7 +173,7 @@ console.log(`
   cd ${opts.dir}
   npm install
   npm run build          # → dist/app.exe
-  node dist/app.exe      # XP 及以上；加 -o CON 可看 stdout
+  dist\\app.exe           # XP 及以上，直接跑；加 -o CON 可看 stdout
 
 程序入口 src/main.ts，应用名/标题 src/config.ts，打包与底座 build.ts。
 `)

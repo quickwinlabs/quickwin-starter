@@ -1,6 +1,6 @@
 {
   "name": "create-quickwin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Scaffold a QuickWin desktop app (QuickJS + Win32)",
   "type": "module",
   "bin": {

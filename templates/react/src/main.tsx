@@ -1,5 +1,5 @@
 // createRoot 建主窗 → render 挂 React 树；关窗只隐藏到托盘，托盘右键菜单里退出
-// 构建 npm run build；运行 node dist/app.exe（-o CON 看 stdout）
+// 构建 npm run build；运行 dist\app.exe（-o CON 看 stdout）
 import 'quickwin/lib/polyfill.js'   // React 调度要用 setTimeout / console
 import { createRoot } from 'quickwin/lib/react-qw/index.js'
 import { ShowWindow } from 'quickwin/lib/windows/user32.js'

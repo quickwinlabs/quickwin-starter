@@ -1,5 +1,5 @@
 // QuickWin 最小骨架：窗口 + 按钮 + GDI 自绘 + 定时器 + 关窗退出
-// 构建 npm run build（tsc → esbuild → 图标 → 内嵌）；运行 node dist/app.exe（-o CON 看 stdout）
+// 构建 npm run build（tsc → esbuild → 图标 → 内嵌）；运行 dist\app.exe（-o CON 看 stdout）
 //
 // gui 只提供建窗/消息泵原语，其余 Win32 走 quickwin/lib/windows/*。结构缓冲要先落变量再用
 // .ptr —— 裸指针不保活，临时值可能在调用前被回收；出参槽用 def.alloc().ptr + decode 读回。
