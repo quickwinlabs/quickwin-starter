@@ -5,14 +5,14 @@
   "type": "module",
   "description": "A QuickWin desktop app",
   "scripts": {
-    "build": "tsc && node build.ts",
-    "icon": "node scripts/gen-icon.mjs"
+    "build": "tsc && node build.ts"
   },
   "dependencies": {
     "quickwin": "^3.0.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^24",
     "esbuild": "^0.28.2",
     "resedit": "^3.1.0",
     "typescript": "5.9"

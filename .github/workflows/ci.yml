@@ -29,23 +29,37 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org # 发布步骤取 token 用
 
-      # 用脚手架生成一个项目并当作真实用户构建它：这一步同时也是模板的端到端验收
-      # （验证 package.json 包名改写、_gitignore→.gitignore、APP_NAME/APP_TITLE 哨兵替换）
+      # 脚手架只改写应用名/标题与 @types/node 版本；底座不由它选（生成的 build 脚本
+      # 就是 node build.ts，默认 x86-nowasm），用户要换就手改那一行 —— 这里先按默认
+      # 构建，再自己换个底座验一次
       # 脚手架本身的语法不用单独查——node 整文件解析先于执行，真有语法错这步就报错了
       - name: Generate a project and build it
         run: |
-          node bin/create-quickwin.js smoke-app --base=x64-wasm
+          node bin/create-quickwin.js smoke-app
           cd smoke-app
           test -f .gitignore
           test ! -f _gitignore
+          test -f build.ts
+          test -f icon.ts
           grep -q '"name": "smoke-app"' package.json
           grep -q "APP_NAME = 'smoke-app'" src/config.ts
-          grep -q -- '--base=x64-wasm' package.json
-          npm ci
+          grep -q '"build": "tsc && node build.ts"' package.json
+          ! grep -q -- '--base' package.json
+          # 模板不带 lock：@types/node 的大版本按生成时本机 Node 写死
+          test ! -f package-lock.json
+          NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+          grep -q "\"@types/node\": \"^$NODE_MAJOR\"" package.json
+          npm install --no-audit --no-fund
           npm run build
           test -f dist/app.exe
           test -f dist/app.js
           node -e "const s=require('fs').statSync('dist/app.exe').size; if(s<1000000) throw new Error('exe too small: '+s); console.log('dist/app.exe', s, 'bytes')"
+          # 换底座：--base 仍是 build.ts 的参数，x64 底座更大（验值真被用上）
+          SMALL=$(node -p "require('fs').statSync('dist/app.exe').size")
+          node build.ts --base=x64
+          BIG=$(node -p "require('fs').statSync('dist/app.exe').size")
+          echo "x86-nowasm $SMALL B -> x64 $BIG B"
+          [ "$BIG" -gt "$SMALL" ]
 
       # 发布前的最后一道闸：确认 tarball 就是"bin + template"这两样（npm 只剪包根的
       # node_modules/dist，template/ 下的必须靠 template/.npmignore，这里正是验它）
@@ -58,9 +72,11 @@ jobs:
           grep -qx 'package/bin/create-quickwin.js' files.txt
           grep -qx 'package/template/_gitignore' files.txt
           grep -qx 'package/template/src/main.ts' files.txt
-          grep -qx 'package/template/package-lock.json' files.txt
+          grep -qx 'package/template/build.ts' files.txt
+          grep -qx 'package/template/icon.ts' files.txt
           ! grep -qE '^package/template/(dist|node_modules)/' files.txt
           ! grep -q '^package/template/\.gitignore$' files.txt
+          ! grep -q 'package-lock\.json' files.txt
 
       # 版本驱动：package.json 的 version 与 registry 上的不同才发一版；不建 tag、
       # 不建 Release —— 包的分发只走 npm。PR 上不发（上面那些步骤照跑）

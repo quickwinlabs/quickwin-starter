@@ -8,9 +8,14 @@
     "noEmit": true,
     // 运行时是 QuickJS（无 DOM）：标准库按引擎能力取 ES2024（quickwin 包自己用 ES2025），
     // 刻意不开 DOM —— 否则 DOM 的 TextDecoder/TextEncoder 会撞包内 polyfill 的同名全局声明。
-    // build.ts 也不在 include 里：它是 Node 侧脚本，需要 @types/node 才类型完整。
-    "lib": ["es2024"],
-    "types": []
+    "lib": [
+      "es2024"
+    ],
+    // build.ts / icon.ts 是 Node 侧脚本，同样不进 include（免得 Node 全局污染上面这层
+    // 运行时视图）：它们各自用 /// <reference types="node" /> 取 Node 类型；build.ts 用
+    // './icon.ts' 带后缀导入，交给 Node 的类型剥离直接跑，故这里放行 .ts 后缀的导入。
+    "types": [],
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src",
