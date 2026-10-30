@@ -12,7 +12,7 @@
     ],
     // JSX 走 react/jsx-runtime；<w> 的属性类型来自 quickwin/lib/react-qw/jsx.d.ts
     "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    "jsxImportSource": "quickwin/lib/react-qw",
     // 只取 quickwin 的类型入口；build.ts / icon.ts 是 Node 侧脚本，自取 Node 类型
     "types": ["quickwin"],
     "allowImportingTsExtensions": true
