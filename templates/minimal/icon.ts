@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { Resvg, type RenderedImage } from '@resvg/resvg-js'
 import { Data, NtExecutable, NtExecutableResource, Resource } from 'resedit'
+import { APP_ICON_ID } from 'quickwin/lib/consts.js'
 
 export function iconFromSvg(svg: string): Buffer {
     const render = (size: number) => new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render()
@@ -68,7 +69,7 @@ export function setIcon(exe: Buffer, svgPath: string): Buffer {
     const iconFile = Data.IconFile.from(ico)
     Resource.IconGroupEntry.replaceIconsForResource(
         res.entries,
-        101,        // RT_ICON_GROUP ID（底座无现成图标，资源不存在时自动追加）
+        APP_ICON_ID, // RT_ICON_GROUP ID（底座无现成图标，资源不存在时自动追加）
         1033,       // en-US
         iconFile.icons.map((i) => i.data),
     )

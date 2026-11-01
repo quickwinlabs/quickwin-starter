@@ -1,7 +1,8 @@
-// 托盘：Shell_NotifyIcon 把事件投给主窗（消息号自定，WM_APP+1），图标来自 gui.LoadAppIcon()，
-// 也就是 build.ts 盖进 exe 的那份 RT_GROUP_ICON
+// 托盘：Shell_NotifyIcon 把事件投给主窗（消息号自定，WM_APP+1），图标来自 loadAppIcon()，
+// 也就是 build.ts 盖进 exe 的那份 RT_GROUP_ICON（resedit 固定 ID 101）
 import * as gui from 'gui'
 import { NULL, type MaybePtr } from 'quickwin/lib/ffi/ctype.js'
+import { loadAppIcon } from 'quickwin/lib/app-icon.js'
 import {
     AppendMenu, CreatePopupMenu, DestroyMenu, GetCursorPos, LoadImageOrdinal, PostQuitMessage,
     SetForegroundWindow, ShowWindow, TrackPopupMenu,
@@ -21,7 +22,7 @@ const CMD_QUIT = 2
 /** 挂上托盘图标；handle() 供主窗 onEvent 转发 WM_TRAY。 */
 export function installTray(hwnd: gui.HWND) {
     // LoadImageW 的句柄随 uType 变（HICON/HCURSOR/HBITMAP），绑定给不出具体类型，按裸指针声明
-    let hIcon: MaybePtr<''> | null = gui.LoadAppIcon()
+    let hIcon: MaybePtr<''> | null = loadAppIcon(0, 0)
     if (!hIcon) hIcon = LoadImageOrdinal(NULL, IDI.APPLICATION, ImageType.ICON, 0, 0, LoadImageFlag.SHARED)
 
     const added = !!hIcon && !!ShellNotifyIcon(NotifyIconCmd.ADD, {
