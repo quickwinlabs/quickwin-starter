@@ -22,8 +22,8 @@ const CMD_QUIT = 2
 /** 挂上托盘图标；handle() 供主窗 onEvent 转发 WM_TRAY。 */
 export function installTray(hwnd: gui.HWND) {
     // LoadImageW 的句柄随 uType 变（HICON/HCURSOR/HBITMAP），绑定给不出具体类型，按裸指针声明
-    let hIcon: MaybePtr<''> | null = loadAppIcon(0, 0)
-    if (!hIcon) hIcon = LoadImageOrdinal(NULL, IDI.APPLICATION, ImageType.ICON, 0, 0, LoadImageFlag.SHARED)
+    let hIcon: MaybePtr<''> | null = loadAppIcon(16, 16)
+    if (!hIcon) hIcon = LoadImageOrdinal(NULL, IDI.APPLICATION, ImageType.ICON, 16, 16, LoadImageFlag.SHARED)
 
     const added = !!hIcon && !!ShellNotifyIcon(NotifyIconCmd.ADD, {
         cbSize: NOTIFYICONDATAW.size,

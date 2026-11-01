@@ -1,6 +1,6 @@
 /// <reference types="node" />
 // assets/icon.svg → 多条目 ICO → 作为 RT_GROUP_ICON(101) 盖进 exe
-// 条目策略：16/24/32/48 用 32bpp BMP（+AND 掩码，XP 起都认）；64/128/256 用 PNG（Vista+）；
+// 条目策略：16/32 用 32bpp BMP（+AND 掩码，XP 起都认）；256 用 PNG（Vista+）；24/48/64/128 系统不主动请求或可由相邻尺寸缩放，省略。
 // 小尺寸各自独立渲染（不是拿大的缩），托盘/资源管理器里不糊。
 import { readFileSync } from 'node:fs'
 import { Resvg, type RenderedImage } from '@resvg/resvg-js'
@@ -10,8 +10,8 @@ import { APP_ICON_ID } from 'quickwin/lib/consts.js'
 export function iconFromSvg(svg: string): Buffer {
     const render = (size: number) => new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render()
     const entries = [
-        ...[16, 24, 32, 48].map((size) => ({ size, data: bmpOf(render(size)) })),
-        ...[64, 128, 256].map((size) => ({ size, data: render(size).asPng() })),
+        ...[16, 32].map((size) => ({ size, data: bmpOf(render(size)) })),
+        ...[256].map((size) => ({ size, data: render(size).asPng() })),
     ]
 
     // ICONDIR(6) + ICONDIRENTRY[](16×N) + 数据区
