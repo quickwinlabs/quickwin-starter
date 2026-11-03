@@ -1,10 +1,10 @@
-// 托盘：Shell_NotifyIcon 把事件投给主窗（消息号自定，WM_APP+1），图标来自 loadAppIcon()，
+// 托盘：Shell_NotifyIcon 把事件投给主窗（消息号自定，WM_APP+1），图标来自 loadAppIconScaled()，
 // 也就是 build.ts 盖进 exe 的那份 RT_GROUP_ICON（resedit 固定 ID 101）
 import * as gui from 'gui'
 import { NULL, type MaybePtr } from 'quickwin/lib/ffi/ctype.js'
-import { loadAppIcon } from 'quickwin/lib/app-icon.js'
+import { loadAppIconScaled } from 'quickwin/lib/app-icon.js'
 import {
-    AppendMenu, CreatePopupMenu, DestroyMenu, GetCursorPos, LoadImageOrdinal, PostQuitMessage,
+    AppendMenu, CreatePopupMenu, DestroyMenu, GetCursorPos, LoadImage, PostQuitMessage,
     SetForegroundWindow, ShowWindow, TrackPopupMenu,
 } from 'quickwin/lib/windows/user32.js'
 import { NOTIFYICONDATAW, POINT } from 'quickwin/lib/windows/structs.js'
@@ -21,9 +21,10 @@ const CMD_QUIT = 2
 
 /** 挂上托盘图标；handle() 供主窗 onEvent 转发 WM_TRAY。 */
 export function installTray(hwnd: gui.HWND) {
-    // LoadImageW 的句柄随 uType 变（HICON/HCURSOR/HBITMAP），绑定给不出具体类型，按裸指针声明
-    let hIcon: MaybePtr<''> | null = loadAppIcon(16, 16)
-    if (!hIcon) hIcon = LoadImageOrdinal(NULL, IDI.APPLICATION, ImageType.ICON, 16, 16, LoadImageFlag.SHARED)
+    // LoadImageW 的句柄随 uType 变（HICON/HCURSOR/HBITMAP），绑定给不出具体类型，按裸指针声明。
+    // 按系统 DPI 取实际像素（125% 时 16 → 20px），高 DPI 下不会被系统放大而发虚
+    let hIcon: MaybePtr<''> | null = loadAppIconScaled(16, 16)
+    if (!hIcon) hIcon = LoadImage(NULL, IDI.APPLICATION, ImageType.ICON, 0, 0, LoadImageFlag.SHARED)
 
     const added = !!hIcon && !!ShellNotifyIcon(NotifyIconCmd.ADD, {
         cbSize: NOTIFYICONDATAW.size,
